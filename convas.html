@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<title></title>
+	</head>
+	<body>
+		<canvas id="canvas" width="1200" height="600"></canvas>
+		<script type="text/javascript">
+			var data = {
+				id: 'p',
+				name: '测试',
+				children: [
+					{name: '测试p1-1', id: 'p1-1', children: [
+						{name: '测试p1-11', id: 'p1-1'},
+						{name: '测试p1-21', id: 'p1-2', children: [
+							{name: '测试p1-11', id: 'p1-1'},
+							{name: '测试p1-21', id: 'p1-2'},
+							{name: '测试p1-31', id: 'p1-3'},
+							{name: '测试p1-41', id: 'p1-4'}
+						]},
+						{name: '测试p1-31', id: 'p1-3', children: [
+							{name: '测试p1-11', id: 'p1-1'},
+							{name: '测试p1-21', id: 'p1-2'},
+							{name: '测试p1-31', id: 'p1-3'},
+							{name: '测试p1-41', id: 'p1-4', children: [
+								{name: '测试p1-11', id: 'p1-1'},
+								{name: '测试p1-21', id: 'p1-2'},
+								{name: '测试p1-31', id: 'p1-3'},
+								{name: '测试p1-41', id: 'p1-4'}
+							]}
+						]},
+						{name: '测试p1-41', id: 'p1-4', children: [
+							{name: '测试p1-11', id: 'p1-1'},
+							{name: '测试p1-21', id: 'p1-2'},
+							{name: '测试p1-31', id: 'p1-3'},
+							{name: '测试p1-41', id: 'p1-4'}
+						]}
+					]},
+					{name: '测试p1-2', id: 'p1-2', children: [
+						{name: '测试p1-11', id: 'p1-1'},
+						{name: '测试p1-21', id: 'p1-2'},
+						{name: '测试p1-31', id: 'p1-3', children: [
+							{name: '测试p1-11', id: 'p1-1'},
+							{name: '测试p1-21', id: 'p1-2'},
+							{name: '测试p1-31', id: 'p1-3'},
+							{name: '测试p1-41', id: 'p1-4', children: [
+								{name: '测试p1-11', id: 'p1-1'},
+								{name: '测试p1-21', id: 'p1-2'},
+								{name: '测试p1-31', id: 'p1-3'},
+								{name: '测试p1-41', id: 'p1-4'}
+							]}
+						]},
+						{name: '测试p1-41', id: 'p1-4'}
+					]},
+					{name: '测试p1-3', id: 'p1-3', children: [
+						{name: '测试p1-11', id: 'p1-1'},
+						{name: '测试p1-21', id: 'p1-2'},
+						{name: '测试p1-31', id: 'p1-3'},
+						{name: '测试p1-41', id: 'p1-4'}
+					]},
+					{name: '测试p1-4', id: 'p1-4', children: [
+						{name: '测试p1-11', id: 'p1-1'},
+						{name: '测试p1-21', id: 'p1-2'},
+						{name: '测试p1-31', id: 'p1-3'},
+						{name: '测试p1-41', id: 'p1-4'}
+					]}
+				]
+			}
+			var nodes = []
+			var nodeWidth = 100;
+			var nodeHeight = 50;
+			var heightSpace = 200;
+			var nodeSpace = 20;
+			var treeSpace = nodeWidth + nodeSpace;
+			
+			/**
+			 * 计算所有子节点
+			 */
+			function getChildren() {
+				
+				// 计算位置
+				var position = function(node) {
+					var pos = node.position ? node.position : [0, 0];
+					var childNodes = node.children ? node.children : [];
+					var bol = childNodes.length % 2 == 1
+					var min = 0
+					var max = 0
+					
+					for (var i = 0; i < childNodes.length; i++) {
+						
+						var vector = i % 2 == 1 ? -1 : 1;
+						var y = pos[1] + heightSpace
+						
+						// 单数情况下 第一项特殊
+						if (bol && i == 0) {
+							childNodes[i].position = [pos[0], y]
+						} 
+						// 双数情况下 前两项特殊
+						else if (!bol && (i == 0 || i == 1)) {
+							var LEFT_OR_RIGHT_WIDTH = i == 1 ? childNodes[i].rightWidth : childNodes[i].leftWidth
+							childNodes[i].position = [pos[0] + vector * LEFT_OR_RIGHT_WIDTH , y]
+						}
+						// 其它情况下都一样
+						else {
+							var index = i < 2 ? 0 : i - 2;
+							var n = childNodes[index]
+							var w = i % 2 == 1 ? (n.leftWidth + childNodes[i].rightWidth) : (n.rightWidth + childNodes[i].leftWidth);
+							var x = n.position[0] + w * vector;
+							childNodes[i].position = [x, y]
+						}
+						// 计算中间那条线的距离
+						if (i == 0) {
+							max = childNodes[i].position[0]
+							min = childNodes[i].position[0]
+						}
+						if (childNodes[i].position[0] > max) max = childNodes[i].position[0]
+						if (childNodes[i].position[0] < min) min = childNodes[i].position[0]
+						// 父节点位置
+						childNodes[i].parentPosition = pos
+						// 父节点
+						childNodes[i].parentNode = node
+						var data = position(childNodes[i]);
+					}
+					
+					node.lineWidth = [min, max]
+					node.position = pos
+					nodes.push(node)
+					return node
+				}
+				
+				// 计算宽度
+				var traverse = function(node) {
+					var nodeWidth = 0
+					var childNodes = node.children ? node.children : [];
+					var leftWidth = 0
+					var rightWidth = 0
+					
+					for (var i = 0; i < childNodes.length; i++) {
+						
+						var data = traverse(childNodes[i]);
+						if (!data.nodeWidth) {
+							data.nodeWidth = treeSpace
+						}
+						if (!data.leftWidth) {
+							data.leftWidth = treeSpace / 2
+						}
+						if (!data.rightWidth) {
+							data.rightWidth = treeSpace / 2
+						}
+						
+						if (i % 2 == 1) {
+							leftWidth += data.nodeWidth
+						} else {
+							rightWidth += data.nodeWidth
+						}
+						nodeWidth += data.nodeWidth
+					}
+					node.nodeWidth = nodeWidth
+					node.leftWidth = leftWidth
+					node.rightWidth = rightWidth
+					return node
+				};
+				// 计算宽度
+				console.log(traverse(data))
+				// 计算位置
+				position(traverse(data))
+				
+				console.log(nodes)
+			}
+			getChildren()
+			
+			
+			var convas = document.getElementById("canvas")
+			
+			if (convas.getContext) {
+				console.log('sdasd')
+				var ctx = convas.getContext("2d");
+				
+				ctx.translate(convas.offsetWidth/2, 0);
+				// ctx.translate(convas.offsetWidth/2,convas.offsetHeight/2);
+				ctx.scale(1, 1);
+				canvasDraw(ctx);
+				onWheel(ctx)
+			}
+			
+			/**
+			 * 画图
+			 * @param {Object} ctx canvas 对象
+			 */
+			function canvasDraw(ctx) {
+				for (var i = 0; i < nodes.length; i++) {
+					if (nodes[i].children) {
+						parentLine(ctx, nodes[i].position, nodes[i].lineWidth)
+					}
+					if (nodes[i].parentPosition) {
+						moveLine(ctx, [nodes[i].position[0], nodes[i].position[1] - heightSpace / 2], nodes[i].position)
+						nodeRect(ctx, nodes[i].position)
+					}
+				}
+			}
+			
+			/**
+			 * 鼠标滚动事件
+			 * @param {Object} ctx canvas 对象
+			 */
+			function onWheel(ctx) {
+				var number = 1
+				//兼容性写法，该函数也是网上别人写的，不过找不到出处了，蛮好的，所有我也没有必要修改了
+				//判断鼠标滚轮滚动方向
+				if (window.addEventListener) {
+					//FF,火狐浏览器会识别该方法
+					window.addEventListener('DOMMouseScroll', wheel, false);
+				}
+				    
+				window.onmousewheel = document.onmousewheel = wheel;//W3C
+				//统一处理滚轮滚动事件
+				function wheel(event){
+					var delta = 0;
+					if (!event) event = window.event;
+					if (event.wheelDelta) {//IE、chrome浏览器使用的是wheelDelta，并且值为“正负120”
+						delta = event.wheelDelta/120; 
+						if (window.opera) delta = -delta;//因为IE、chrome等向下滚动是负值，FF是正值，为了处理一致性，在此取反处理
+					} else if (event.detail) {//FF浏览器使用的是detail,其值为“正负3”
+						delta = -event.detail/3;
+					}
+					// if (event.preventDefault) { /*FF 和 Chrome*/
+					// 	event.preventDefault(); // 阻止默认事件
+					// }
+					if (delta) handle(delta);
+				}
+				//上下滚动时的具体处理函数
+				function handle(delta) {
+					var num = 1
+					if (delta < 0 && number > 0.5){//向下滚动
+					    num -= 0.05
+						number -= 0.05
+					}
+					else if(delta > 0 && number < 2){//向上滚动
+					    num += 0.05
+						number += 0.05
+					}
+					if(num === 1) return 
+					
+					console.log(number)
+					// ctx.translate( num * 100, num * 100);
+					// console.log(num)
+					ctx.scale(num.toFixed(2), num.toFixed(2));
+					ctx.clearRect(-10000000000, -10000000000, 30000000000, 30000000000);
+					// ctx.fillStyle="#FFFFFF";
+					// ctx.fillRect(-110000000000,-110000000000 , 330000000000, 330000000000);
+					canvasDraw(ctx);
+				}
+			}
+			/**
+			 * 节点 块 与 文字
+			 * @param {Object} ctx canvas对象
+			 * @param {Object} position 传入的画图初始位置
+			 */
+			function nodeRect(ctx, position) {
+				ctx.fillStyle="#BFBFBF";
+				ctx.fillRect(position[0] - nodeWidth / 2,position[1] , nodeWidth, nodeHeight);
+				
+				ctx.font = "14px bold 黑体";
+				// 设置颜色
+				ctx.fillStyle = "#ff0";
+				// 设置水平对齐方式
+				ctx.textAlign = "center";
+				// 设置垂直对齐方式
+				ctx.textBaseline = "middle";
+				// 绘制文字（参数：要写的字，x坐标，y坐标）
+				ctx.fillText("要写的文字", position[0] , position[1]  + 20);
+				
+				ctx.font = "10px bold 黑体";
+				// 设置颜色
+				ctx.fillStyle = "#f00";
+				// 绘制文字（参数：要写的字，x坐标，y坐标）
+				ctx.fillText("要写的文字", position[0] , position[1] + 40);
+				
+				
+				ctx.font = "12px bold 黑体";
+				// 设置颜色
+				ctx.fillStyle = "#f00";
+				// 绘制文字（参数：要写的字，x坐标，y坐标）
+				ctx.fillText("控股", position[0] - 30, position[1] - 20);
+				
+				ctx.font = "12px bold 黑体";
+				// 设置颜色
+				ctx.fillStyle = "#f00";
+				// 绘制文字（参数：要写的字，x坐标，y坐标）
+				ctx.fillText("10%", position[0] + 30, position[1] - 20);
+			}
+			/**
+			 * 父节点指向子节点的线
+			 * @param {Object} ctx  canvas 对象
+			 * @param {Array} start 父节点起始位置
+			 * @param {Array} width 节点间线的起始位置
+			 */
+			function parentLine(ctx, start, width) {
+				var line = start[1] + heightSpace / 2
+				ctx.beginPath();
+				ctx.moveTo(start[0],start[1]);
+				ctx.lineTo(start[0], line);
+				ctx.moveTo(width[0], line);
+				ctx.lineTo(width[1], line);
+				ctx.stroke();
+			}
+			/**
+			 * 子节点的线
+			 * @param {Object} ctx canvas 对象
+			 * @param {Object} start 父节点起始位置
+			 * @param {Object} end 节点结束位置
+			 */
+			function moveLine(ctx, start, end) {
+				// ctx.lineWidth = 0.2
+				ctx.beginPath();
+				ctx.moveTo(start[0],start[1]);
+				ctx.lineTo(end[0],end[1]);
+				ctx.stroke();
+				lineArrow(ctx, end)
+			}
+			/**
+			 * 子节线上的箭头
+			 * @param {Object} ctx canvas 对象
+			 * @param {Object} end 节点结束位置
+			 */
+			function lineArrow(ctx, end) {
+				ctx.fillStyle = "#000";
+				ctx.beginPath();
+				ctx.lineTo(end[0] + 5,end[1] - 25);
+				ctx.lineTo(end[0] ,end[1] - 15);
+				ctx.lineTo(end[0] - 5,end[1] - 25);
+				ctx.closePath()
+				ctx.fill();
+			}
+		</script>
+	</body>
+</html>
